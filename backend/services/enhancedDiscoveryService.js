@@ -17,8 +17,9 @@ class EnhancedDiscoveryService {
       latitude,
       longitude,
       radius = 25, // miles
-      limit = 50,
-      sources = ['google', 'foursquare'] // which APIs to use
+      limit = 100, // Increased default limit
+      sources = ['google', 'foursquare'], // which APIs to use
+      includeFastFood = true // Include fast food chains
     } = options;
 
     try {
@@ -56,7 +57,8 @@ class EnhancedDiscoveryService {
           const googleResult = await this.googlePlaces.searchNearbyRestaurants(
             searchLat, 
             searchLng, 
-            radiusMeters
+            radiusMeters,
+            includeFastFood
           );
           
           if (googleResult.restaurants && googleResult.restaurants.length > 0) {
@@ -83,7 +85,8 @@ class EnhancedDiscoveryService {
             searchLat, 
             searchLng, 
             radiusMeters, 
-            limit
+            limit,
+            includeFastFood
           );
           
           if (foursquareResult.success && foursquareResult.restaurants.length > 0) {

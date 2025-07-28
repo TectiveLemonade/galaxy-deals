@@ -16,8 +16,9 @@ router.post('/restaurants/enhanced', async (req, res) => {
       latitude,
       longitude,
       radius = 25, // miles
-      limit = 50,
+      limit = 100, // Increased default limit
       sources = ['google', 'foursquare'], // which APIs to use
+      includeFastFood = true, // Include fast food chains
       importToDatabase = false
     } = req.body;
 
@@ -31,7 +32,8 @@ router.post('/restaurants/enhanced', async (req, res) => {
       longitude,
       radius,
       limit,
-      sources
+      sources,
+      includeFastFood
     });
 
     if (!discoveryResult.success) {

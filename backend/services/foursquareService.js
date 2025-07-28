@@ -7,7 +7,7 @@ class FoursquareService {
   }
 
   // Search for restaurants using Foursquare Places API
-  async searchRestaurants(latitude, longitude, radius = 25000, limit = 50) {
+  async searchRestaurants(latitude, longitude, radius = 25000, limit = 100, includeFastFood = true) {
     return new Promise((resolve, reject) => {
       if (!this.apiKey || this.apiKey === 'your-foursquare-api-key-here') {
         resolve({
@@ -18,7 +18,12 @@ class FoursquareService {
         return;
       }
 
-      const url = `${this.baseUrl}/places/search?ll=${latitude},${longitude}&radius=${radius}&categories=13000&fields=fsq_id,name,location,tel,website,rating,price,hours,categories,distance&limit=${limit}`;
+      // Food and Restaurant categories - includes fast food if includeFastFood is true
+      const categories = includeFastFood 
+        ? '13000,13001,13002,13003,13004,13005,13006,13007,13008,13009,13010,13011,13012,13013,13014,13015,13016,13017,13018,13019,13020,13021,13022,13023,13024,13025,13026,13027,13028,13029,13030,13031,13032,13033,13034,13035,13036,13037,13038,13039,13040,13041,13042,13043,13044,13045,13046,13047,13048,13049,13050,13051,13052,13053,13054,13055,13056,13057,13058,13059,13060,13061,13062,13063,13064,13065,13066,13067,13068,13069,13070,13071,13072,13073,13074,13075,13076,13077,13078,13079,13080,13081,13082,13083,13084,13085,13086,13087,13088,13089,13090,13091,13092,13093,13094,13095,13096,13097,13098,13099'
+        : '13000'; // Just main restaurant category
+
+      const url = `${this.baseUrl}/places/search?ll=${latitude},${longitude}&radius=${radius}&categories=${categories}&fields=fsq_id,name,location,tel,website,rating,price,hours,categories,distance&limit=${limit}`;
       
       const options = {
         headers: {
@@ -27,7 +32,7 @@ class FoursquareService {
         }
       };
 
-      console.log(`Searching Foursquare for restaurants near ${latitude}, ${longitude} within ${radius}m`);
+      console.log(`Searching Foursquare for ${includeFastFood ? 'all restaurants including fast food' : 'restaurants only'} near ${latitude}, ${longitude} within ${radius}m`);
 
       https.get(url, options, (res) => {
         let data = '';

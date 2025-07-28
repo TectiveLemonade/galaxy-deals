@@ -7,15 +7,21 @@ class GooglePlacesService {
   }
 
   // Search for restaurants near a location
-  async searchNearbyRestaurants(latitude, longitude, radius = 25000, pageToken = null) {
+  async searchNearbyRestaurants(latitude, longitude, radius = 25000, includeFastFood = true, pageToken = null) {
     return new Promise((resolve, reject) => {
-      let url = `${this.baseUrl}/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=restaurant&key=${this.apiKey}`;
+      // Define search types based on includeFastFood parameter
+      const searchTypes = includeFastFood 
+        ? ['restaurant', 'meal_takeaway', 'meal_delivery'] 
+        : ['restaurant'];
+      
+      // Use the primary type for the main search
+      let url = `${this.baseUrl}/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${searchTypes[0]}&key=${this.apiKey}`;
       
       if (pageToken) {
         url += `&pagetoken=${pageToken}`;
       }
 
-      console.log(`Searching for restaurants near ${latitude}, ${longitude} within ${radius}m`);
+      console.log(`Searching for ${includeFastFood ? 'all restaurants including fast food' : 'restaurants only'} near ${latitude}, ${longitude} within ${radius}m`);
 
       https.get(url, (res) => {
         let data = '';
@@ -29,11 +35,29 @@ class GooglePlacesService {
             const result = JSON.parse(data);
             
             if (result.status === 'OK' || result.status === 'ZERO_RESULTS') {
-              resolve({
-                restaurants: result.results || [],
-                nextPageToken: result.next_page_token,
-                status: result.status
-              });
+              // If includeFastFood is true, perform additional searches for takeaway and delivery
+              if (includeFastFood && !pageToken) {
+                this.searchMultipleTypes(latitude, longitude, radius).then(combinedResults => {
+                  resolve({
+                    restaurants: combinedResults,
+                    nextPageToken: result.next_page_token,
+                    status: 'OK'
+                  });
+                }).catch(error => {
+                  // Fallback to just restaurant results if multi-type search fails
+                  resolve({
+                    restaurants: result.results || [],
+                    nextPageToken: result.next_page_token,
+                    status: result.status
+                  });
+                });
+              } else {
+                resolve({
+                  restaurants: result.results || [],
+                  nextPageToken: result.next_page_token,
+                  status: result.status
+                });
+              }
             } else {
               reject(new Error(`Google Places API error: ${result.status} - ${result.error_message || 'Unknown error'}`));
             }
@@ -47,6 +71,50 @@ class GooglePlacesService {
         reject(new Error(`Google Places API request failed: ${error.message}`));
       });
     });
+  }
+
+  // Search multiple place types to include fast food chains
+  async searchMultipleTypes(latitude, longitude, radius) {
+    const searchTypes = ['restaurant', 'meal_takeaway', 'meal_delivery'];
+    const allResults = [];
+    const seen = new Set();
+
+    for (const type of searchTypes) {
+      try {
+        const url = `${this.baseUrl}/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=${type}&key=${this.apiKey}`;
+        
+        const results = await new Promise((resolve, reject) => {
+          https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+              try {
+                const result = JSON.parse(data);
+                resolve(result.results || []);
+              } catch (error) {
+                reject(error);
+              }
+            });
+          }).on('error', reject);
+        });
+
+        // Add unique results
+        for (const place of results) {
+          if (!seen.has(place.place_id)) {
+            seen.add(place.place_id);
+            allResults.push(place);
+          }
+        }
+        
+        console.log(`Found ${results.length} unique places of type '${type}'`);
+        
+      } catch (error) {
+        console.log(`Failed to search type '${type}':`, error.message);
+      }
+    }
+
+    console.log(`Total unique places found: ${allResults.length}`);
+    return allResults;
   }
 
   // Get detailed information about a place
