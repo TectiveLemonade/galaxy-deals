@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Deals Troubleshooting</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #2d1b69 25%, #8a2be2 50%, #4169e1 75%, #ff1493 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 15px;
+            border: 1px solid #8a2be2;
+        }
+        h1 {
+            color: #ff1493;
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: #1e0b37;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #4169e1;
+        }
+        .success { border-left-color: #00ff00; }
+        .error { border-left-color: #ff0000; }
+        .test-button {
+            background: #8a2be2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #ff1493;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌌 Galaxy Deals Troubleshooting</h1>
+        
+        <div class="status" id="frontend-status">
+            <h3>Frontend Server Status</h3>
+            <p>Testing connection to http://localhost:3000...</p>
+            <button class="test-button" onclick="testFrontend()">Test Frontend</button>
+        </div>
+
+        <div class="status" id="backend-status">
+            <h3>Backend Server Status</h3>
+            <p>Testing connection to http://localhost:5000...</p>
+            <button class="test-button" onclick="testBackend()">Test Backend</button>
+        </div>
+
+        <div class="status">
+            <h3>Browser Compatibility</h3>
+            <p>JavaScript: <span id="js-status">✅ Working</span></p>
+            <p>Fetch API: <span id="fetch-status">✅ Supported</span></p>
+            <p>Geolocation: <span id="geo-status">❓ Testing...</span></p>
+        </div>
+
+        <div class="status">
+            <h3>Quick Actions</h3>
+            <button class="test-button" onclick="window.open('http://localhost:3000', '_blank')">Open Frontend</button>
+            <button class="test-button" onclick="window.open('http://localhost:3000/test', '_blank')">Open Test Page</button>
+            <button class="test-button" onclick="clearCache()">Clear Browser Cache</button>
+        </div>
+
+        <div class="log" id="log">
+            <div>🚀 Galaxy Deals Troubleshooting Tool Loaded</div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.innerHTML = `[${timestamp}] ${type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️'} ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function testFrontend() {
+            const status = document.getElementById('frontend-status');
+            try {
+                addLog('Testing frontend server...');
+                const response = await fetch('http://localhost:3000/test');
+                if (response.ok) {
+                    status.className = 'status success';
+                    status.innerHTML = '<h3>Frontend Server Status</h3><p>✅ Frontend server is running correctly on port 3000</p>';
+                    addLog('Frontend server test successful', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.innerHTML = '<h3>Frontend Server Status</h3><p>❌ Frontend server is not responding</p><p>Make sure to run: <code>cd frontend && npm run dev</code></p>';
+                addLog(`Frontend server test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBackend() {
+            const status = document.getElementById('backend-status');
+            try {
+                addLog('Testing backend server...');
+                const response = await fetch('http://localhost:5000/api/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    status.className = 'status success';
+                    status.innerHTML = '<h3>Backend Server Status</h3><p>✅ Backend server is running correctly on port 5000</p>';
+                    addLog('Backend server test successful', 'success');
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.innerHTML = '<h3>Backend Server Status</h3><p>❌ Backend server is not responding</p><p>Make sure to run: <code>cd backend && npm run dev</code></p>';
+                addLog(`Backend server test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function clearCache() {
+            addLog('Attempting to clear browser cache...');
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            addLog('Cache cleared. Try refreshing the page with Ctrl+F5', 'success');
+        }
+
+        // Test geolocation
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                () => {
+                    document.getElementById('geo-status').innerHTML = '✅ Supported';
+                    addLog('Geolocation API is working', 'success');
+                },
+                () => {
+                    document.getElementById('geo-status').innerHTML = '⚠️ Blocked';
+                    addLog('Geolocation API is blocked or denied', 'error');
+                }
+            );
+        } else {
+            document.getElementById('geo-status').innerHTML = '❌ Not Supported';
+            addLog('Geolocation API not supported', 'error');
+        }
+
+        // Test fetch API
+        if (!window.fetch) {
+            document.getElementById('fetch-status').innerHTML = '❌ Not Supported';
+            addLog('Fetch API not supported', 'error');
+        }
+
+        addLog('Troubleshooting tool ready');
+    </script>
+</body>
+</html>

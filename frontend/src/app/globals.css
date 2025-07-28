@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4e4bc;
+  --foreground: #003d5c;
+  --surf-sand: #f4e4bc;
+  --surf-ocean: #006994;
+  --surf-wave: #4fb3d9;
+  --surf-coral: #ff6b6b;
+  --surf-teal: #26d0ce;
+  --surf-sunset: #ff8a65;
+  --surf-driftwood: #8d6e63;
+  --surf-seafoam: #a8e6cf;
+  --surf-deep-blue: #003d5c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: linear-gradient(135deg, #003d5c 0%, #006994 25%, #4fb3d9 50%, #26d0ce 75%, #a8e6cf 100%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
