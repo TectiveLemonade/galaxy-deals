@@ -69,14 +69,10 @@ export default function RestaurantsPage() {
         payload.address = searchInput.trim();
       }
 
-      // Search database restaurants first
-      const dbResponse = await fetch('http://localhost:5000/api/location/restaurants-near', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const allRestaurants: Restaurant[] = [];
+      let searchLocationData = null;
 
-      // Try enhanced discovery API (multiple sources)
+      // PRIORITY 1: Try enhanced discovery API first (multiple sources with fast food)
       let enhancedResponse = null;
       try {
         enhancedResponse = await fetch('http://localhost:5000/api/discover/restaurants/enhanced', {
@@ -93,37 +89,7 @@ export default function RestaurantsPage() {
         console.log('Enhanced discovery API unavailable:', error);
       }
 
-      // Fallback to original Google Places API if enhanced fails
-      let googleResponse = null;
-      if (!enhancedResponse || !enhancedResponse.ok) {
-        try {
-          googleResponse = await fetch('http://localhost:5000/api/discover/restaurants', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } catch (error) {
-          console.log('Google Places API unavailable:', error);
-        }
-      }
-
-      const allRestaurants: Restaurant[] = [];
-      let searchLocationData = null;
-
-      // Process database results
-      const dbData = await dbResponse.json();
-      if (dbData.success) {
-        allRestaurants.push(...dbData.restaurants.map((r: Restaurant) => ({
-          ...r,
-          source: 'database'
-        })));
-        searchLocationData = dbData.searchLocation;
-        console.log(`Found ${dbData.restaurants.length} database restaurants`);
-      } else {
-        console.log('Database search failed:', dbData.message);
-      }
-
-      // Process enhanced discovery results if available
+      // Process enhanced discovery results if available (THIS IS THE MAIN SOURCE)
       if (enhancedResponse && enhancedResponse.ok) {
         try {
           const enhancedData = await enhancedResponse.json();
@@ -155,7 +121,7 @@ export default function RestaurantsPage() {
               foursquareId: r.fsq_id
             }));
             allRestaurants.push(...enhancedRestaurants);
-            console.log(`Found ${enhancedRestaurants.length} restaurants from enhanced API (${enhancedData.sources?.join(', ')})`);
+            console.log(`🌟 ENHANCED API: Found ${enhancedRestaurants.length} restaurants including fast food (${enhancedData.sources?.join(', ')})`);
             if (!searchLocationData) {
               searchLocationData = enhancedData.searchLocation;
             }
@@ -165,45 +131,80 @@ export default function RestaurantsPage() {
         }
       }
 
-      // Process Google Places results as fallback if enhanced API failed
-      else if (googleResponse) {
+      // PRIORITY 2: If enhanced API failed, try fallback APIs
+      else {
+        console.log('⚠️ Enhanced API not available, trying fallbacks...');
+        
+        // Try original Google Places API
         try {
-          const googleData = await googleResponse.json();
-          if (googleData.success && googleData.restaurants) {
-            const googleRestaurants = googleData.restaurants.map((r: Record<string, unknown>) => ({
-              _id: r.googlePlaceId || `google-${Math.random()}`,
-              name: r.name || 'Restaurant',
-              description: r.vicinity || 'Great food awaits you here!',
-              cuisineType: Array.isArray(r.types) ? (r.types as string[]).filter((t: string) => 
-                !['restaurant', 'food', 'establishment'].includes(t)
-              ).slice(0, 2) : ['Restaurant'],
-              priceRange: r.priceLevel && typeof r.priceLevel === 'number' ? '$'.repeat(r.priceLevel) : '$$',
-              rating: {
-                average: (typeof r.rating === 'number' ? r.rating : 4.0),
-                count: (typeof r.user_ratings_total === 'number' ? r.user_ratings_total : 0)
-              },
-              location: {
-                address: {
-                  street: r.vicinity || 'Address not available',
-                  city: 'City',
-                  state: 'State',
-                  zipCode: '00000'
-                }
-              },
-              distance: r.distance,
-              features: ['dine-in'],
-              source: 'google',
-              googlePlaceId: r.googlePlaceId
-            }));
-            allRestaurants.push(...googleRestaurants);
-            console.log(`Found ${googleRestaurants.length} Google Places restaurants (fallback)`);
-            if (!searchLocationData) {
-              searchLocationData = googleData.searchLocation;
+          const googleResponse = await fetch('http://localhost:5000/api/discover/restaurants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (googleResponse.ok) {
+            const googleData = await googleResponse.json();
+            if (googleData.success && googleData.restaurants) {
+              const googleRestaurants = googleData.restaurants.map((r: Record<string, unknown>) => ({
+                _id: r.googlePlaceId || `google-${Math.random()}`,
+                name: r.name || 'Restaurant',
+                description: r.vicinity || 'Great food awaits you here!',
+                cuisineType: Array.isArray(r.types) ? (r.types as string[]).filter((t: string) => 
+                  !['restaurant', 'food', 'establishment'].includes(t)
+                ).slice(0, 2) : ['Restaurant'],
+                priceRange: r.priceLevel && typeof r.priceLevel === 'number' ? '$'.repeat(r.priceLevel) : '$$',
+                rating: {
+                  average: (typeof r.rating === 'number' ? r.rating : 4.0),
+                  count: (typeof r.user_ratings_total === 'number' ? r.user_ratings_total : 0)
+                },
+                location: {
+                  address: {
+                    street: r.vicinity || 'Address not available',
+                    city: 'City',
+                    state: 'State',
+                    zipCode: '00000'
+                  }
+                },
+                distance: r.distance,
+                features: ['dine-in'],
+                source: 'google',
+                googlePlaceId: r.googlePlaceId
+              }));
+              allRestaurants.push(...googleRestaurants);
+              console.log(`🔄 FALLBACK: Found ${googleRestaurants.length} Google Places restaurants`);
+              if (!searchLocationData) {
+                searchLocationData = googleData.searchLocation;
+              }
             }
           }
         } catch (error) {
-          console.log('Error processing Google Places results:', error);
+          console.log('Google Places API unavailable:', error);
         }
+      }
+
+      // PRIORITY 3: Add database restaurants as additional options (not primary)
+      try {
+        const dbResponse = await fetch('http://localhost:5000/api/location/restaurants-near', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const dbData = await dbResponse.json();
+        if (dbData.success && dbData.restaurants.length > 0) {
+          const dbRestaurants = dbData.restaurants.map((r: Restaurant) => ({
+            ...r,
+            source: 'database'
+          }));
+          allRestaurants.push(...dbRestaurants);
+          console.log(`📊 DATABASE: Added ${dbData.restaurants.length} verified restaurants`);
+          if (!searchLocationData) {
+            searchLocationData = dbData.searchLocation;
+          }
+        }
+      } catch (error) {
+        console.log('Database search failed:', error);
       }
 
       // Remove duplicates and sort by distance
