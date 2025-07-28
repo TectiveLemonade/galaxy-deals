@@ -2,11 +2,179 @@ const express = require('express');
 const Restaurant = require('../models/Restaurant');
 const User = require('../models/User');
 const GooglePlacesService = require('../services/googlePlacesService');
+const EnhancedDiscoveryService = require('../services/enhancedDiscoveryService');
 const { geocodeAddress, geocodeZipcode } = require('../utils/geocoding');
 
 const router = express.Router();
 
-// Discover restaurants from Google Places API
+// Enhanced restaurant discovery using multiple free APIs
+router.post('/restaurants/enhanced', async (req, res) => {
+  try {
+    const {
+      address,
+      zipcode,
+      latitude,
+      longitude,
+      radius = 25, // miles
+      limit = 50,
+      sources = ['google', 'foursquare'], // which APIs to use
+      importToDatabase = false
+    } = req.body;
+
+    const enhancedDiscovery = new EnhancedDiscoveryService();
+    
+    // Discover restaurants using multiple APIs
+    const discoveryResult = await enhancedDiscovery.discoverRestaurants({
+      address,
+      zipcode,
+      latitude,
+      longitude,
+      radius,
+      limit,
+      sources
+    });
+
+    if (!discoveryResult.success) {
+      return res.status(400).json(discoveryResult);
+    }
+
+    // Process restaurants for database import if requested
+    let processedRestaurants = [];
+    let importedCount = 0;
+
+    if (importToDatabase) {
+      // Get default owner for imported restaurants
+      let defaultOwner = await User.findOne({ role: { $in: ['admin', 'restaurant'] } });
+      if (!defaultOwner) {
+        defaultOwner = new User({
+          name: 'Multi-API Import',
+          email: 'import@fooddeals.com',
+          password: 'temp-password',
+          role: 'restaurant'
+        });
+        await defaultOwner.save();
+      }
+
+      for (const restaurant of discoveryResult.restaurants) {
+        try {
+          // Check if restaurant already exists
+          const existingRestaurant = await Restaurant.findOne({
+            $or: [
+              { googlePlaceId: restaurant.place_id },
+              { foursquareId: restaurant.fsq_id },
+              {
+                name: restaurant.name,
+                'location.coordinates.0': { $gte: (restaurant.geometry?.location?.lng || restaurant.location?.longitude || 0) - 0.001, $lte: (restaurant.geometry?.location?.lng || restaurant.location?.longitude || 0) + 0.001 },
+                'location.coordinates.1': { $gte: (restaurant.geometry?.location?.lat || restaurant.location?.latitude || 0) - 0.001, $lte: (restaurant.geometry?.location?.lat || restaurant.location?.latitude || 0) + 0.001 }
+              }
+            ]
+          });
+
+          if (existingRestaurant) {
+            processedRestaurants.push({
+              ...existingRestaurant.toObject(),
+              status: 'exists',
+              source: 'database'
+            });
+            continue;
+          }
+
+          // Convert to our standard format and save
+          const restaurantData = await enhancedDiscovery.convertToStandardFormat(restaurant, defaultOwner._id);
+          const newRestaurant = new Restaurant(restaurantData);
+          await newRestaurant.save();
+
+          processedRestaurants.push({
+            ...newRestaurant.toObject(),
+            status: 'imported',
+            source: restaurant.source
+          });
+          importedCount++;
+
+        } catch (error) {
+          console.error(`Error processing restaurant ${restaurant.name}:`, error);
+          // Add restaurant as discovered but not imported
+          processedRestaurants.push({
+            ...restaurant,
+            status: 'error',
+            error: error.message
+          });
+        }
+      }
+    } else {
+      // Just return discovered restaurants without importing
+      processedRestaurants = discoveryResult.restaurants.map(restaurant => ({
+        ...restaurant,
+        status: 'discovered'
+      }));
+    }
+
+    res.json({
+      success: true,
+      searchLocation: discoveryResult.searchLocation,
+      restaurants: processedRestaurants,
+      total: processedRestaurants.length,
+      imported: importedCount,
+      sources: discoveryResult.sources,
+      errors: discoveryResult.errors,
+      message: importToDatabase 
+        ? `${discoveryResult.message}. Imported ${importedCount} new restaurants to database.`
+        : discoveryResult.message
+    });
+
+  } catch (error) {
+    console.error('Enhanced discovery error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Enhanced restaurant discovery failed',
+      error: error.message
+    });
+  }
+});
+
+// Enhanced zipcode-specific search
+router.post('/restaurants/zipcode', async (req, res) => {
+  try {
+    const {
+      zipcode,
+      radius = 15,
+      expandSearch = true,
+      minResults = 10,
+      sources = ['google', 'foursquare'],
+      importToDatabase = false
+    } = req.body;
+
+    if (!zipcode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Zipcode is required'
+      });
+    }
+
+    const enhancedDiscovery = new EnhancedDiscoveryService();
+    
+    // Search by zipcode with enhancement options
+    const result = await enhancedDiscovery.searchByZipcode(zipcode, {
+      radius,
+      expandSearch,
+      minResults,
+      sources,
+      importToDatabase
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Zipcode search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Zipcode restaurant search failed',
+      error: error.message
+    });
+  }
+});
+
+// Original Google Places API route (kept for backward compatibility)
 router.post('/restaurants', async (req, res) => {
   try {
     const { 

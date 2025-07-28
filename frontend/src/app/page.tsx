@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Image from "next/image";
+import { useState, useEffect, useCallback } from 'react';
 import Link from "next/link";
+import { useAuth } from '@/contexts/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
 
 interface Deal {
   _id: string;
@@ -20,9 +21,38 @@ interface Deal {
 }
 
 export default function Home() {
+  const { user } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState<{lat: number; lng: number} | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  const fetchDeals = useCallback(async () => {
+    try {
+      let url = 'http://localhost:5000/api/deals?featured=true&limit=6';
+      if (location) {
+        const radius = user?.preferences?.maxDistance || 10;
+        url += `&lat=${location.lat}&lng=${location.lng}&radius=${radius}`;
+      }
+      
+      const headers: HeadersInit = {};
+      if (user) {
+        const token = localStorage.getItem('token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+      setDeals(data.deals || []);
+    } catch (error) {
+      console.error('Error fetching deals:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [location, user]);
 
   useEffect(() => {
     // Get user location
@@ -43,30 +73,13 @@ export default function Home() {
     } else {
       fetchDeals();
     }
-  }, []);
+  }, [fetchDeals]);
 
   useEffect(() => {
     if (location) {
       fetchDeals();
     }
-  }, [location]);
-
-  const fetchDeals = async () => {
-    try {
-      let url = 'http://localhost:5000/api/deals?featured=true&limit=6';
-      if (location) {
-        url += `&lat=${location.lat}&lng=${location.lng}&radius=10`;
-      }
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      setDeals(data.deals || []);
-    } catch (error) {
-      console.error('Error fetching deals:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [location, fetchDeals]);
 
   const getDealText = (deal: Deal) => {
     switch (deal.dealType) {
@@ -96,9 +109,35 @@ export default function Home() {
             Discover amazing restaurant deals in your coastal neighborhood
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-surf-coral hover:bg-opacity-80 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105">
-              Find Deals Near Me
-            </button>
+            {user ? (
+              <button 
+                onClick={() => {
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                        setLocation({
+                          lat: position.coords.latitude,
+                          lng: position.coords.longitude
+                        });
+                      }
+                    );
+                  }
+                }}
+                className="bg-surf-coral hover:bg-opacity-80 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105"
+              >
+                Find Deals Near Me
+              </button>
+            ) : (
+              <button 
+                onClick={() => {
+                  setAuthMode('register');
+                  setAuthModalOpen(true);
+                }}
+                className="bg-surf-coral hover:bg-opacity-80 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105"
+              >
+                Get Started - Sign Up
+              </button>
+            )}
             <Link href="/restaurants" className="border-2 border-surf-ocean text-surf-ocean hover:bg-surf-ocean hover:text-white font-bold py-3 px-8 rounded-full transition-all duration-300 inline-block text-center">
               Browse All Restaurants
             </Link>
@@ -150,8 +189,19 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  <button className="w-full mt-4 bg-gradient-to-r from-surf-teal to-surf-ocean text-white font-bold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity">
-                    View Deal
+                  <button 
+                    onClick={() => {
+                      if (!user) {
+                        setAuthMode('login');
+                        setAuthModalOpen(true);
+                      } else {
+                        // Handle view deal logic for authenticated users
+                        console.log('View deal:', deal._id);
+                      }
+                    }}
+                    className="w-full mt-4 bg-gradient-to-r from-surf-teal to-surf-ocean text-white font-bold py-2 px-4 rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    {user ? 'View Deal' : 'Sign In to View'}
                   </button>
                 </div>
               )) : (
@@ -199,6 +249,13 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authMode}
+      />
     </main>
   );
 }

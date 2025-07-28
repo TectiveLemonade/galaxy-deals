@@ -1,0 +1,72 @@
+{
+  "32960": {
+    "city": "Vero Beach",
+    "state": "FL",
+    "latitude": 27.6386,
+    "longitude": -80.3706,
+    "county": "Indian River"
+  },
+  "32940": {
+    "city": "Melbourne",
+    "state": "FL", 
+    "latitude": 28.1906,
+    "longitude": -80.6431,
+    "county": "Brevard"
+  },
+  "32901": {
+    "city": "Melbourne",
+    "state": "FL",
+    "latitude": 28.0836,
+    "longitude": -80.6081,
+    "county": "Brevard"
+  },
+  "90210": {
+    "city": "Beverly Hills",
+    "state": "CA",
+    "latitude": 34.0928,
+    "longitude": -118.4065,
+    "county": "Los Angeles"
+  },
+  "10001": {
+    "city": "New York",
+    "state": "NY",
+    "latitude": 40.7505,
+    "longitude": -73.9934,
+    "county": "New York"
+  },
+  "33101": {
+    "city": "Miami",
+    "state": "FL",
+    "latitude": 25.7617,
+    "longitude": -80.1918,
+    "county": "Miami-Dade"
+  },
+  "75201": {
+    "city": "Dallas",
+    "state": "TX",
+    "latitude": 32.7767,
+    "longitude": -96.7970,
+    "county": "Dallas"
+  },
+  "60601": {
+    "city": "Chicago",
+    "state": "IL",
+    "latitude": 41.8781,
+    "longitude": -87.6298,
+    "county": "Cook"
+  },
+  "98101": {
+    "city": "Seattle",
+    "state": "WA",
+    "latitude": 47.6062,
+    "longitude": -122.3321,
+    "county": "King"
+  },
+  "30301": {
+    "city": "Atlanta",
+    "state": "GA",
+    "latitude": 33.7490,
+    "longitude": -84.3880,
+    "county": "Fulton"
+  }
+}

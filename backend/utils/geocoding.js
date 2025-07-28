@@ -47,7 +47,8 @@ const zipcodeFallback = {
   '90028': { latitude: 34.0522, longitude: -118.2437, formattedAddress: 'Los Angeles, CA 90028, USA' },
   '90013': { latitude: 34.0224, longitude: -118.2851, formattedAddress: 'Los Angeles, CA 90013, USA' },
   '90033': { latitude: 34.0522, longitude: -118.2097, formattedAddress: 'Los Angeles, CA 90033, USA' },
-  '32940': { latitude: 27.6386, longitude: -80.3706, formattedAddress: 'Vero Beach, FL 32940, USA' },
+  '32940': { latitude: 28.1906, longitude: -80.6431, formattedAddress: 'Melbourne, FL 32940, USA' },
+  '32960': { latitude: 27.6386, longitude: -80.3706, formattedAddress: 'Vero Beach, FL 32960, USA' },
   '32901': { latitude: 28.0836, longitude: -80.6081, formattedAddress: 'Melbourne, FL 32901, USA' }
 };
 
