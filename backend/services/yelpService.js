@@ -78,9 +78,117 @@ class YelpService {
     });
   }
 
+  // Generate realistic deals and promotions
+  generateDeals(restaurantName, category, priceLevel) {
+    const deals = [];
+    const currentHour = new Date().getHours();
+    const isWeekend = [0, 6].includes(new Date().getDay());
+    
+    // Happy Hour deals (3-6 PM weekdays)
+    if (currentHour >= 15 && currentHour <= 18 && !isWeekend) {
+      if (['Seafood', 'American', 'Steakhouse', 'Irish'].includes(category)) {
+        deals.push({
+          id: `${restaurantName}-happy-hour`,
+          type: 'happy_hour',
+          title: 'Happy Hour Special',
+          description: '50% off appetizers & $5 cocktails',
+          validUntil: '6:00 PM today',
+          discount: '50%',
+          category: 'drinks_appetizers',
+          isActive: true
+        });
+      }
+    }
+
+    // Daily specials based on day of week
+    const daySpecials = {
+      1: 'Monday: 20% off entire bill',
+      2: 'Taco Tuesday: $2 tacos all day',
+      3: 'Wine Wednesday: Half price wine bottles',
+      4: 'Thursday: Buy one entree, get appetizer free',
+      5: 'Friday: 15% off groups of 4+',
+      6: 'Weekend Special: Kids eat free',
+      0: 'Sunday Brunch: $12.99 bottomless mimosas'
+    };
+
+    const today = new Date().getDay();
+    if (daySpecials[today]) {
+      deals.push({
+        id: `${restaurantName}-daily-special`,
+        type: 'daily_special',
+        title: 'Today\'s Special',
+        description: daySpecials[today],
+        validUntil: '11:59 PM today',
+        discount: '20%',
+        category: 'food',
+        isActive: true
+      });
+    }
+
+    // Fast food specific deals
+    if (['Fast Food', 'Pizza', 'Sandwiches'].includes(category)) {
+      const fastFoodDeals = [
+        { title: 'Student Discount', description: '10% off with valid student ID', discount: '10%' },
+        { title: 'Family Bundle', description: '$19.99 family meal deal', discount: '$5 off' },
+        { title: 'Mobile Order Special', description: 'Free delivery on orders $15+', discount: 'Free delivery' }
+      ];
+      
+      const randomDeal = fastFoodDeals[Math.floor(Math.random() * fastFoodDeals.length)];
+      deals.push({
+        id: `${restaurantName}-fast-food-deal`,
+        type: 'special_offer',
+        title: randomDeal.title,
+        description: randomDeal.description,
+        validUntil: 'Limited time',
+        discount: randomDeal.discount,
+        category: 'food',
+        isActive: true
+      });
+    }
+
+    // Premium restaurant deals
+    if (priceLevel >= 3) {
+      deals.push({
+        id: `${restaurantName}-premium-deal`,
+        type: 'special_offer',
+        title: 'Prix Fixe Menu',
+        description: '3-course dinner for $39.99',
+        validUntil: 'Available Monday-Thursday',
+        discount: '$15 off',
+        category: 'dinner',
+        isActive: true
+      });
+    }
+
+    // Random promotional deals
+    if (Math.random() > 0.6) {
+      const promoDeals = [
+        { title: 'First Time Visitor', description: '15% off your first order', discount: '15%' },
+        { title: 'Birthday Special', description: 'Free dessert with birthday verification', discount: 'Free dessert' },
+        { title: 'Loyalty Reward', description: 'Earn points with every purchase', discount: 'Earn points' },
+        { title: 'Group Discount', description: '10% off parties of 6 or more', discount: '10%' },
+        { title: 'Senior Discount', description: '15% off for ages 65+', discount: '15%' }
+      ];
+
+      const randomPromo = promoDeals[Math.floor(Math.random() * promoDeals.length)];
+      deals.push({
+        id: `${restaurantName}-promo-${Math.random()}`,
+        type: 'promotion',
+        title: randomPromo.title,
+        description: randomPromo.description,
+        validUntil: 'Ongoing',
+        discount: randomPromo.discount,
+        category: 'general',
+        isActive: true
+      });
+    }
+
+    return deals;
+  }
+
   // Demo data for Melbourne, FL area when API is not available
   getMelbourneDemoData(latitude, longitude, includeFastFood = true) {
-    console.log('Using Melbourne, FL demo restaurant data...');
+    console.log('Using Melbourne, FL demo restaurant data with deals and promotions...');
     
     const baseRestaurants = [
       // Fine Dining
@@ -148,32 +256,39 @@ class YelpService {
       allRestaurants = [...allRestaurants, ...fastFoodChains];
     }
 
-    // Convert to Yelp-like format
-    const yelpRestaurants = allRestaurants.map((restaurant, index) => ({
-      id: `melbourne-${index}`,
-      name: restaurant.name,
-      image_url: 'https://via.placeholder.com/300x200?text=Restaurant',
-      is_closed: false,
-      url: `https://www.yelp.com/biz/${restaurant.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-      review_count: Math.floor(Math.random() * 500) + 50,
-      categories: [{ alias: restaurant.category.toLowerCase(), title: restaurant.category }],
-      rating: restaurant.rating,
-      coordinates: {
-        latitude: restaurant.lat,
-        longitude: restaurant.lng
-      },
-      transactions: ['delivery', 'pickup'],
-      price: '$'.repeat(restaurant.price),
-      location: {
-        address1: `${Math.floor(Math.random() * 9999) + 1000} ${['Main St', 'Ocean Blvd', 'Wickham Rd', 'US-1', 'Babcock St'][Math.floor(Math.random() * 5)]}`,
-        city: 'Melbourne',
-        zip_code: '32940',
-        country: 'US',
-        state: 'FL'
-      },
-      distance: restaurant.distance * 1609.34, // Convert miles to meters for consistency
-      source: 'yelp_demo'
-    }));
+    // Convert to Yelp-like format with deals
+    const yelpRestaurants = allRestaurants.map((restaurant, index) => {
+      const deals = this.generateDeals(restaurant.name, restaurant.category, restaurant.price);
+      
+      return {
+        id: `melbourne-${index}`,
+        name: restaurant.name,
+        image_url: 'https://via.placeholder.com/300x200?text=Restaurant',
+        is_closed: false,
+        url: `https://www.yelp.com/biz/${restaurant.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        review_count: Math.floor(Math.random() * 500) + 50,
+        categories: [{ alias: restaurant.category.toLowerCase(), title: restaurant.category }],
+        rating: restaurant.rating,
+        coordinates: {
+          latitude: restaurant.lat,
+          longitude: restaurant.lng
+        },
+        transactions: ['delivery', 'pickup'],
+        price: '$'.repeat(restaurant.price),
+        location: {
+          address1: `${Math.floor(Math.random() * 9999) + 1000} ${['Main St', 'Ocean Blvd', 'Wickham Rd', 'US-1', 'Babcock St'][Math.floor(Math.random() * 5)]}`,
+          city: 'Melbourne',
+          zip_code: '32940',
+          country: 'US',
+          state: 'FL'
+        },
+        distance: restaurant.distance * 1609.34, // Convert miles to meters for consistency
+        source: 'yelp_demo',
+        deals: deals, // Add deals to restaurant data
+        hasDeals: deals.length > 0,
+        activeDealsCount: deals.filter(deal => deal.isActive).length
+      };
+    });
 
     return {
       success: true,
