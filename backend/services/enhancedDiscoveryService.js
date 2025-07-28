@@ -1,11 +1,14 @@
 const GooglePlacesService = require('./googlePlacesService');
 const FoursquareService = require('./foursquareService');
+const YelpService = require('./yelpService');
 const FreeLocationService = require('./freeLocationService');
+const DemoDataService = require('./demoDataService');
 
 class EnhancedDiscoveryService {
   constructor() {
     this.googlePlaces = new GooglePlacesService();
     this.foursquare = new FoursquareService();
+    this.yelp = new YelpService();
     this.locationService = new FreeLocationService();
   }
 
@@ -18,7 +21,7 @@ class EnhancedDiscoveryService {
       longitude,
       radius = 25, // miles
       limit = 100, // Increased default limit
-      sources = ['google', 'foursquare'], // which APIs to use
+      sources = ['yelp', 'google', 'foursquare'], // which APIs to use (Yelp first!)
       includeFastFood = true // Include fast food chains
     } = options;
 
@@ -50,6 +53,32 @@ class EnhancedDiscoveryService {
       const radiusMeters = radius * 1609.34; // Convert miles to meters
       const results = [];
       const errors = [];
+
+      // Search Yelp if enabled (prioritized as it works without API keys)
+      if (sources.includes('yelp')) {
+        try {
+          const yelpResult = await this.yelp.searchRestaurants(
+            searchLat, 
+            searchLng, 
+            radiusMeters,
+            limit,
+            includeFastFood
+          );
+          
+          if (yelpResult.success && yelpResult.restaurants.length > 0) {
+            const processedYelp = yelpResult.restaurants.map(business => ({
+              ...business,
+              source: 'yelp',
+              distance: business.distance ? Math.round(business.distance * 0.000621371 * 100) / 100 : null
+            }));
+            results.push(...processedYelp);
+            console.log(`🟡 YELP: Found ${processedYelp.length} restaurants`);
+          }
+        } catch (error) {
+          console.log('Yelp search failed:', error.message);
+          errors.push({ source: 'yelp', error: error.message });
+        }
+      }
 
       // Search Google Places if enabled and configured
       if (sources.includes('google')) {
@@ -105,12 +134,42 @@ class EnhancedDiscoveryService {
         }
       }
 
-      // Step 3: Remove duplicates and sort by distance
+      // Step 3: Check if we should use demo data as fallback
+      if ((results.length === 0 || results.length < 10) && this.demoData.shouldUseDemoData(searchLat, searchLng, zipcode)) {
+        console.log('Using demo data for Melbourne, FL area');
+        const demoResult = this.demoData.searchMelbourneRestaurants({
+          radius: radius,
+          limit: limit,
+          includeFastFood: includeFastFood
+        });
+        
+        if (demoResult.success && demoResult.restaurants.length > 0) {
+          // Add demo restaurants to results
+          const demoRestaurants = demoResult.restaurants.map(restaurant => ({
+            ...restaurant,
+            distance: restaurant.distance || this.calculateDistance(searchLat, searchLng, 
+              restaurant.geometry?.location?.lat || 0, 
+              restaurant.geometry?.location?.lng || 0)
+          }));
+          
+          results.push(...demoRestaurants);
+          console.log(`Added ${demoRestaurants.length} restaurants from demo data`);
+        }
+      }
+
+      // Step 4: Remove duplicates and sort by distance
       const uniqueRestaurants = this.removeDuplicates(results);
       const sortedRestaurants = uniqueRestaurants
         .filter(r => r.distance !== null)
         .sort((a, b) => (a.distance || 999) - (b.distance || 999))
         .slice(0, limit);
+
+      // Generate appropriate message
+      let finalMessage = this.generateSearchMessage(sortedRestaurants.length, sources, errors);
+      const demoCount = sortedRestaurants.filter(r => r.source === 'demo').length;
+      if (demoCount > 0) {
+        finalMessage += `. Including ${demoCount} local Melbourne, FL restaurants`;
+      }
 
       return {
         success: true,
@@ -123,9 +182,9 @@ class EnhancedDiscoveryService {
         },
         restaurants: sortedRestaurants,
         total: sortedRestaurants.length,
-        sources: sources,
+        sources: [...sources, ...(demoCount > 0 ? ['demo'] : [])],
         errors: errors.length > 0 ? errors : null,
-        message: this.generateSearchMessage(sortedRestaurants.length, sources, errors)
+        message: finalMessage
       };
 
     } catch (error) {
@@ -198,7 +257,9 @@ class EnhancedDiscoveryService {
 
   // Convert any restaurant format to our standard format
   async convertToStandardFormat(restaurant, ownerUserId) {
-    if (restaurant.source === 'google') {
+    if (restaurant.source === 'yelp' || restaurant.source === 'yelp_demo') {
+      return this.yelp.convertToRestaurantFormat(restaurant, ownerUserId);
+    } else if (restaurant.source === 'google') {
       return this.googlePlaces.convertToRestaurantFormat(restaurant, ownerUserId);
     } else if (restaurant.source === 'foursquare') {
       return this.foursquare.convertToRestaurantFormat(restaurant, ownerUserId);

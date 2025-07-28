@@ -80,7 +80,7 @@ export default function RestaurantsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...payload,
-            sources: ['google', 'foursquare'], // Use multiple APIs
+            sources: ['yelp', 'google', 'foursquare'], // Use multiple APIs (Yelp first!)
             limit: 100, // Increased limit to get more restaurants
             includeFastFood: true // Include fast food chains
           })
@@ -379,6 +379,16 @@ export default function RestaurantsPage() {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-2xl font-bold text-galaxy-white mb-1">{restaurant.name}</h3>
+                    {restaurant.source === 'yelp' && (
+                      <span className="bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full mt-1 inline-block font-semibold">
+                        🟡 Via Yelp
+                      </span>
+                    )}
+                    {restaurant.source === 'yelp_demo' && (
+                      <span className="bg-gradient-to-r from-red-400 to-orange-400 text-white text-xs px-3 py-1 rounded-full mt-1 inline-block font-semibold">
+                        🟡 Yelp (Demo Data)
+                      </span>
+                    )}
                     {restaurant.source === 'google' && (
                       <span className="bg-gradient-to-r from-galaxy-blue to-galaxy-purple text-white text-xs px-3 py-1 rounded-full mt-1 inline-block font-semibold">
                         🌐 Via Google Places
